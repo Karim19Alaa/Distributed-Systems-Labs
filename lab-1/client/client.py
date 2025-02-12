@@ -2,64 +2,68 @@ import asyncio
 import time
 import argparse
 import logging
-from urllib.parse import urlencode
-from http.client import HTTPConnection
+import socket
 
-
+# Configure logging with a clear format.
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-async def make_request(host, port, message, server_name):
+def sync_make_request(host, port, message):
+    """
+    Synchronously send a request message to a server via a TCP socket
+    and receive the response.
+    """
     try:
-        params = {'n': message}
-        encoded_params = urlencode(params)
-        url = f"/?{encoded_params}"
-
-        conn = HTTPConnection(host, port)
-        conn.request("GET", url)
-        response = conn.getresponse()
-        data = await asyncio.to_thread(response.read)
-        conn.close()
-
-        return data.decode(), server_name
+        with socket.create_connection((host, port), timeout=5) as sock:
+            sock.sendall(message.encode())
+            response = sock.recv(1024)
+            return response.decode()
     except Exception as e:
-        logger.error(f"Connection error to {host}:{port}: {e}")
-        return f"Error: {e}", server_name
+        return f"Error: {e}"
+
+async def make_request(host, port, message):
+    """
+    Wrap the synchronous socket call in asyncio to avoid blocking.
+    """
+    return await asyncio.to_thread(sync_make_request, host, port, message)
 
 async def run_tasks(host, port, num_requests, server_name, task_type):
+    """
+    Sends a series of requests to a server and logs detailed output.
+    """
+    logger.info(f"----- Starting tests for {server_name} (Task: {task_type}) -----")
     start_time = time.time()
-    tasks = []
+
 
     if task_type == "fib":
-        tasks = [make_request(host, port, f"fib {i}", server_name) for i in range(1, num_requests + 1)]
+        messages = [f"fib 20" for i in range(1, num_requests + 1)]
     elif task_type == "io":
-        tasks = [make_request(host, port, "contact_db", server_name) for _ in range(num_requests)]
+        messages = ["contact_db" for _ in range(num_requests)]
     else:
-        logger.warning("Invalid task type.")
+        logger.error(f"Invalid task type: {task_type}")
         return
 
+    tasks = [make_request(host, port, msg) for msg in messages]
     results = await asyncio.gather(*tasks)
 
-    end_time = time.time()
-    duration = end_time - start_time
+    duration = time.time() - start_time
 
-    logger.info(f"http://{host}:{port} ({server_name} - {task_type}): {num_requests} requests in {duration:.2f} seconds")  # Use logger.info
+    for idx, result in enumerate(results, 1):
+        logger.info(f"{server_name} | {task_type} | Request {idx}: {result}")
 
-    for data, server in results:
-        logger.info(f"Server: {server}, Task: {task_type} Result: {data}")  # Use logger.info
-
+    logger.info(f"----- Completed {num_requests} '{task_type}' requests for {server_name} in {duration:.2f} seconds -----\n")
 
 async def main():
-    parser = argparse.ArgumentParser(description="Client for concurrent server testing.")
-    parser.add_argument("--num_requests", type=int, default=1, help="Number of requests to send to each server.")
+    parser = argparse.ArgumentParser(description="Client for concurrent server testing using sockets.")
+    parser.add_argument("--num_requests", type=int, default=10, help="Number of requests to send per task.")
     args = parser.parse_args()
 
     server_configs = [
-        ("sync_sequential", 8081, "Sync Sequential"),
-        ("sync_threaded", 8082, "Sync Threaded"),
-        ("sync_threadpool", 8083, "Sync Threadpool"),
-        ("async_io_multiplexing", 8084, "Async IO Multiplexing"),
-        ("async_asyncio", 8085, "Async Asyncio"),
+        ("sync_sequential", 8080, "Sync Sequential"),
+        ("sync_threaded", 8080, "Sync Threaded"),
+        ("sync_threadpool", 8080, "Sync Threadpool"),
+        ("async_io_multiplexing", 8080, "Async IO Multiplexing"),
+        ("async_asyncio", 8080, "Async Asyncio"),
     ]
     for host, port, server_name in server_configs:
         await asyncio.gather(
