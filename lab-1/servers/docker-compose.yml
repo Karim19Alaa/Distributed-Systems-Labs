@@ -25,6 +25,14 @@ services:
       timeout: 10s
       retries: 5
       start_period: 20s
+    develop:
+      watch:
+        - action: rebuild
+          path: ./sync_backend/sequential
+          target: .
+        - action: rebuild
+          path: ./commons
+          target: /app/commons
   sync_threaded:
     build:
       context: .
@@ -39,6 +47,14 @@ services:
       timeout: 10s
       retries: 5
       start_period: 20s
+    develop:
+      watch:
+        - action: rebuild
+          path: ./sync_backend/threaded
+          target: .
+        - action: rebuild
+          path: ./commons
+          target: /app/commons
   sync_threadpool:
     build:
       context: .
@@ -53,6 +69,14 @@ services:
       timeout: 10s
       retries: 5
       start_period: 20s
+    develop:
+      watch:
+        - action: rebuild
+          path: ./sync_backend/threadpool
+          target: .
+        - action: rebuild
+          path: ./commons
+          target: /app/commons
   async_io_multiplexing:
     build:
       context: .
@@ -67,6 +91,14 @@ services:
       timeout: 10s
       retries: 5
       start_period: 20s
+    develop:
+      watch:
+        - action: rebuild
+          path: ./async_backend/io_multiplexing
+          target: .
+        - action: rebuild
+          path: ./commons
+          target: /app/commons
   async_asyncio:
     build:
       context: .
@@ -81,17 +113,25 @@ services:
       timeout: 10s
       retries: 5
       start_period: 20s
-  client:
-    build: ../client/
-    depends_on:
-      - sync_sequential
-      - sync_threaded
-      - sync_threadpool
-      - async_io_multiplexing
-      - async_asyncio
-    healthcheck: # Add healthcheck to client to ensure the client runs only after the server is up
-        test: ["CMD-SHELL", "python client.py --num_requests 1"]
-        interval: 5s
-        timeout: 10s
-        retries: 5
-        start_period: 20s
+    develop:
+      watch:
+        - action: rebuild
+          path: ./async_backend/asyncio_server
+          target: .
+        - action: rebuild
+          path: ./commons
+          target: /app/commons
+  # client:
+  #   build: ../client/
+  #   depends_on:
+  #     - sync_sequential
+  #     - sync_threaded
+  #     - sync_threadpool
+  #     - async_io_multiplexing
+  #     - async_asyncio
+  #   healthcheck: # Add healthcheck to client to ensure the client runs only after the server is up
+  #       test: ["CMD-SHELL", "python client.py --num_requests 1"]
+  #       interval: 5s
+  #       timeout: 10s
+  #       retries: 5
+  #       start_period: 20s

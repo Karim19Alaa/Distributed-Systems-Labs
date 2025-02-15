@@ -51,6 +51,7 @@ def handle_client(sock):
         logger.error(f"Error handling client {addr}: {e}")
     finally:
         try: # Handle potential socket errors during close
+            sel.unregister(sock)
             sock.close()
             logger.info(f"Client disconnected: {addr}")
         except Exception as e:
