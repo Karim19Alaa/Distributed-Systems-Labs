@@ -59,11 +59,11 @@ async def main():
     args = parser.parse_args()
 
     server_configs = [
-        ("sync_sequential", 8080, "Sync Sequential"),
-        ("sync_threaded", 8080, "Sync Threaded"),
-        ("sync_threadpool", 8080, "Sync Threadpool"),
-        ("async_io_multiplexing", 8080, "Async IO Multiplexing"),
-        ("async_asyncio", 8080, "Async Asyncio"),
+        ("localhost", 8081, "Sync Sequential"),
+        ("localhost", 8082, "Sync Threaded"),
+        ("localhost", 8083, "Sync Threadpool"),
+        ("localhost", 8084, "Async IO Multiplexing"),
+        ("localhost", 8085, "Async Asyncio"),
     ]
     for host, port, server_name in server_configs:
         await asyncio.gather(
