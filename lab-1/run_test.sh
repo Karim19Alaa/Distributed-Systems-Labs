@@ -27,3 +27,5 @@ esac
 
 # Run the selected JMeter script with the provided port number and number of threads
 jmeter -n -t "$script" -Jport="$port_number" -JnThreads="$num_threads"
+rm "${test_type}_benchmark.csv"
+rm "jmeter.log"

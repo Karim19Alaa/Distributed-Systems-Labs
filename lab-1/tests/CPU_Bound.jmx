@@ -26,7 +26,7 @@
           <stringProp name="TCPSampler.port">${__P(port)}</stringProp>
           <stringProp name="TCPSampler.timeout"></stringProp>
           <stringProp name="TCPSampler.ctimeout">200</stringProp>
-          <stringProp name="TCPSampler.request">fib 20</stringProp>
+          <stringProp name="TCPSampler.request">fib 25</stringProp>
           <boolProp name="TCPSampler.closeConnection">true</boolProp>
           <stringProp name="ConfigTestElement.username"></stringProp>
           <stringProp name="ConfigTestElement.password"></stringProp>

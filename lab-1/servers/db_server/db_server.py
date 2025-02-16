@@ -16,7 +16,7 @@ async def handle_client(reader, writer):
     logger.info(f"Client connected: {addr}")
 
     try:
-        await asyncio.sleep(3)  # Simulate some work
+        await asyncio.sleep(15)
         writer.write(b"john doe\n")
         await writer.drain()
         logger.debug(f"Sent data to client: {addr}") # Debug logging
