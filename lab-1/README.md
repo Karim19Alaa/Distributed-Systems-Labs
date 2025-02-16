@@ -11,7 +11,7 @@ Before you begin, ensure you have the following dependencies installed on your s
 - Python 3.x: [Install Python](https://www.python.org/downloads/)
 - JMeter: [Install JMeter](https://jmeter.apache.org/download_jmeter.cgi)
 
-You can verify the installation of these dependencies by running the following commands:
+You can verify the installation of these dependencies by running the following commands in your `terminal` application:
 
 ```sh
 docker --version
