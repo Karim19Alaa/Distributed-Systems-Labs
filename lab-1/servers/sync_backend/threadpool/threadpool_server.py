@@ -1,81 +1,53 @@
-import socket
 from concurrent.futures import ThreadPoolExecutor
+from commons.server_base import Server
+from commons.utils import contact_db_sync
 import logging
-from commons.utils import fib, decode_request, contact_db_sync
 
-# Configure logging (Best Practice)
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
-def handle_client(client_socket):
-    """Handles a single client connection using a thread pool."""
-    addr = client_socket.getpeername()
-    logger.info(f"Client connected: {addr}")
 
-    try:
-        request_bytes = client_socket.recv(1024)
-        if not request_bytes:  # Handle client disconnection
-            logger.info(f"Client disconnected: {addr}")
-            client_socket.close()
-            return
+class ThreadPoolServer(Server):
+    def __init__(self, host, port, max_workers=20):
+        super().__init__(host, port)
+        self.executor = ThreadPoolExecutor(max_workers=max_workers)
 
-        request = request_bytes.decode()
-        op, arg = decode_request(request)
+    def handle_client(self, client_socket):
+        addr = client_socket.getpeername()
+        logger.info(f"Client connected: {addr}")
 
-        if op == "fib":
+        def client_task(client_socket):
             try:
-                result = fib(arg)
-                client_socket.sendall(str(result).encode())
-                logger.debug(f"Sent fibonacci result to {addr}: {result}")
+                request_bytes = client_socket.recv(1024)
+                if not request_bytes:
+                    logger.info(f"Client disconnected: {addr}")
+                    client_socket.close()
+                    return
+
+                request = request_bytes.decode()
+                self._handle_request(client_socket, request)
+
             except Exception as e:
-                logger.error(f"Error calculating fibonacci for {addr}: {e}")
-                client_socket.sendall(b"Error calculating fibonacci")
+                logger.error(f"Error handling client {addr}: {e}")
+            finally:
+                try:
+                    client_socket.close()
+                    logger.info(f"Client disconnected: {addr}")
+                except Exception as e:
+                    logger.error(f"Error closing socket for {addr}: {e}")
 
-        elif op == "contact_db":
-            try:
-                db_response = contact_db_sync()
-                client_socket.sendall(db_response)
-                logger.debug(f"Sent DB response to {addr}: {db_response}")
-            except Exception as e:
-                logger.error(f"Error contacting DB for {addr}: {e}")
-                client_socket.sendall(b"Error contacting database")
+        self.executor.submit(client_task, client_socket)
 
-        elif op == "invalid":
-            client_socket.sendall(b"Invalid request")
-            logger.warning(f"Invalid request from {addr}: {request}")
+    def run(self):
+        super().run()
+        self.executor.shutdown()
 
-    except Exception as e:
-        logger.error(f"Error handling client {addr}: {e}")
-    finally:
-        try:  # Handle potential socket errors during close
-            client_socket.close()
-            logger.info(f"Client disconnected: {addr}")
-        except Exception as e:
-            logger.error(f"Error closing socket for {addr}: {e}")
+    def contact_db_operation(self):
+        return contact_db_sync()
 
-
-def run_server(host, port):
-    """Runs the server using a thread pool."""
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Allow reuse of address
-    server_socket.bind((host, port))
-    server_socket.listen()
-    logger.info(f"Server started on {host}:{port}")
-
-    try:
-        with ThreadPoolExecutor(max_workers=20) as executor:
-            while True:
-                client_socket, addr = server_socket.accept()
-                logger.debug(f"Accepted connection from {addr}")
-                executor.submit(handle_client, client_socket) # Submit to threadpool
-
-    except KeyboardInterrupt:
-        logger.info("Server shutting down...")
-    except Exception as e:
-        logger.critical(f"Server crashed: {e}")
-    finally:
-        server_socket.close()
-        logger.info("Server stopped.")
 
 if __name__ == "__main__":
-    run_server('0.0.0.0', 8080)
+    server = ThreadPoolServer("0.0.0.0", 8080)
+    server.run()
