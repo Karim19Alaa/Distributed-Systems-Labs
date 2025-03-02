@@ -1,4 +1,5 @@
 import asyncio
+import os
 import logging
 
 
@@ -33,7 +34,7 @@ async def handle_client(reader, writer):
 async def main():
     """Starts the server and handles incoming connections."""
     try:
-        server = await asyncio.start_server(handle_client, "0.0.0.0", 8080)
+        server = await asyncio.start_server(handle_client, os.environ["DB_IP"], os.environ["DB_PORT"])
         addr = server.sockets[0].getsockname()
         logger.info(f"Server started on {addr}")
         await server.wait_closed()

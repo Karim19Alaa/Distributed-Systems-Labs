@@ -1,5 +1,6 @@
 import socket
 import asyncio
+import os
 from urllib.parse import urlparse, parse_qs
 import logging
 
@@ -47,7 +48,7 @@ async def contact_db():
         The database response (bytes) or an error message (bytes).
     """
     try:
-        reader_db, writer_db = await asyncio.open_connection('db_server', 8080)
+        reader_db, writer_db = await asyncio.open_connection(os.environ['DB_IP'], os.environ['DB_PORT'])
         db_response = await reader_db.read(1024)
         writer_db.close()
         await writer_db.wait_closed()

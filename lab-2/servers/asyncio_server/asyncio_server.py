@@ -1,4 +1,5 @@
 import asyncio
+import os
 from commons.server_base import Server
 from commons.utils import contact_db, decode_request, fib
 import logging
@@ -84,6 +85,6 @@ class AsyncIOServer(Server):
 
 if __name__ == "__main__":
     try:
-        asyncio.run(AsyncIOServer("0.0.0.0", 8080).run())
+        asyncio.run(AsyncIOServer(os.environ['SERVER_IP'], os.environ['SERVER_PORT']).run())
     except KeyboardInterrupt:
         logger.info("Server shutting down...")
