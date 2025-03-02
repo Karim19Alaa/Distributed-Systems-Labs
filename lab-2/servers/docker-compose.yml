@@ -1,0 +1,28 @@
+services:
+  db_server:
+    build:
+      context: .
+      dockerfile: ./db_server/Dockerfile
+    ports:
+      - "8080:8080"
+
+  async_asyncio:
+    build:
+      context: .
+      dockerfile: ./asyncio_server/Dockerfile
+    ports:
+      - "8085:8080"
+    depends_on:
+      - db_server
+    develop:
+      watch:
+        - action: rebuild
+          path: ./async_backend/asyncio_server
+          target: .
+        - action: rebuild
+          path: ./commons
+          target: /app/commons
+  client:
+    build: ../client/
+    depends_on:
+      - async_asyncio
