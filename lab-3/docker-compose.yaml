@@ -1,0 +1,72 @@
+version: '2'
+
+networks:
+  app-tier:
+    driver: bridge
+
+volumes:
+  kafka_volume:
+    name: "kafka_volume"
+services:
+  kafka:
+    image: apache/kafka-native
+    networks:
+      - app-tier
+    ports:
+      - "9092:9092"
+    environment:
+      # Configure listeners for both docker and host communication
+      KAFKA_LISTENERS: CONTROLLER://localhost:9091,HOST://0.0.0.0:9092,DOCKER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: HOST://localhost:9092,DOCKER://kafka:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,DOCKER:PLAINTEXT,HOST:PLAINTEXT
+
+      # Settings required for KRaft mode
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9091
+
+      # Listener to use for broker-to-broker communication
+      KAFKA_INTER_BROKER_LISTENER_NAME: DOCKER
+
+      # Required for a single node cluster
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - kafka_volume:/bitnami/kafka
+  ml:
+    build:
+      context: ./ml_service
+      dockerfile: ./Dockerfile
+    networks:
+      - app-tier
+    environment:
+      - SELECTED_TOPICS=["view", "purchase"]
+      - EVENT_LISTENER_ADDRESS=kafka:9093
+      - ADS_EMITTER_ADDRESS=kafka:9093
+    depends_on:
+      - kafka
+  analytics:
+    build:
+      context: ./analytics_service
+      dockerfile: ./Dockerfile
+    networks:
+      - app-tier
+    environment:
+      - SELECTED_TOPICS=["view", "click"]
+      - EVENT_LISTENER_ADDRESS=kafka:9093
+    depends_on:
+      - kafka
+
+  client:
+    build:
+      context: ./client
+      dockerfile: ./Dockerfile
+    networks:
+      - app-tier
+    environment:
+      - CLIENT_ID=1
+      - ADS_LISTENER_ADDRESS=kafka:9093
+      - EVENT_EMITTER_ADDRESS=kafka:9093
+      - ACTIONS=['view', 'click', 'purchase']
+    depends_on:
+      - kafka
