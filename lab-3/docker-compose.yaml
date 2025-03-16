@@ -1,12 +1,8 @@
-version: '2'
 
 networks:
   app-tier:
     driver: bridge
 
-volumes:
-  kafka_volume:
-    name: "kafka_volume"
 services:
   kafka:
     image: apache/kafka-native
@@ -31,8 +27,18 @@ services:
 
       # Required for a single node cluster
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-    volumes:
-      - kafka_volume:/bitnami/kafka
+  
+  kafka_admin:
+    build:
+      context: ./kafka_admin
+      dockerfile: ./Dockerfile
+    networks:
+      - app-tier
+    depends_on:
+      - kafka
+    environment:
+      - KAFKA_HOST=kafka:9093
+      - TOPICS=["view", "click", "purchase"]
   ml:
     build:
       context: ./ml_service
@@ -44,7 +50,13 @@ services:
       - EVENT_LISTENER_ADDRESS=kafka:9093
       - ADS_EMITTER_ADDRESS=kafka:9093
     depends_on:
-      - kafka
+      kafka_admin:
+        condition: service_completed_successfully
+    develop:
+      watch:
+        - action: rebuild
+          path: ./ml_service
+          target: /app
   analytics:
     build:
       context: ./analytics_service
@@ -55,7 +67,13 @@ services:
       - SELECTED_TOPICS=["view", "click"]
       - EVENT_LISTENER_ADDRESS=kafka:9093
     depends_on:
-      - kafka
+      kafka_admin:
+        condition: service_completed_successfully
+    develop:
+      watch:
+        - action: rebuild
+          path: ./analytics_service
+          target: /app
 
   client:
     build:
@@ -67,6 +85,12 @@ services:
       - CLIENT_ID=1
       - ADS_LISTENER_ADDRESS=kafka:9093
       - EVENT_EMITTER_ADDRESS=kafka:9093
-      - ACTIONS=['view', 'click', 'purchase']
+      - ACTIONS=["view", "click", "purchase"]
     depends_on:
-      - kafka
+      kafka_admin:
+        condition: service_completed_successfully
+    develop:
+      watch:
+        - action: rebuild
+          path: ./client
+          target: /app
