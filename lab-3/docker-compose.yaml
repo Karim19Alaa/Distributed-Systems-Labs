@@ -75,7 +75,7 @@ services:
           path: ./analytics_service
           target: /app
 
-  client:
+  client-1:
     build:
       context: ./client
       dockerfile: ./Dockerfile
@@ -83,6 +83,25 @@ services:
       - app-tier
     environment:
       - CLIENT_ID=1
+      - ADS_LISTENER_ADDRESS=kafka:9093
+      - EVENT_EMITTER_ADDRESS=kafka:9093
+      - ACTIONS=["view", "click", "purchase"]
+    depends_on:
+      kafka_admin:
+        condition: service_completed_successfully
+    develop:
+      watch:
+        - action: rebuild
+          path: ./client
+          target: /app
+  client-2:
+    build:
+      context: ./client
+      dockerfile: ./Dockerfile
+    networks:
+      - app-tier
+    environment:
+      - CLIENT_ID=2
       - ADS_LISTENER_ADDRESS=kafka:9093
       - EVENT_EMITTER_ADDRESS=kafka:9093
       - ACTIONS=["view", "click", "purchase"]
