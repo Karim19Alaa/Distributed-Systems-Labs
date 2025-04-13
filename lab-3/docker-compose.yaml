@@ -1,8 +1,4 @@
-
-networks:
-  app-tier:
-    driver: bridge
-
+version: '3.8'
 services:
   kafka:
     image: apache/kafka-native
@@ -11,23 +7,15 @@ services:
     ports:
       - "9092:9092"
     environment:
-      # Configure listeners for both docker and host communication
       KAFKA_LISTENERS: CONTROLLER://localhost:9091,HOST://0.0.0.0:9092,DOCKER://0.0.0.0:9093
       KAFKA_ADVERTISED_LISTENERS: HOST://localhost:9092,DOCKER://kafka:9093
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,DOCKER:PLAINTEXT,HOST:PLAINTEXT
-
-      # Settings required for KRaft mode
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9091
-
-      # Listener to use for broker-to-broker communication
       KAFKA_INTER_BROKER_LISTENER_NAME: DOCKER
-
-      # Required for a single node cluster
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-  
   kafka_admin:
     build:
       context: ./kafka_admin
@@ -52,11 +40,6 @@ services:
     depends_on:
       kafka_admin:
         condition: service_completed_successfully
-    develop:
-      watch:
-        - action: rebuild
-          path: ./ml_service
-          target: /app
   analytics:
     build:
       context: ./analytics_service
@@ -64,17 +47,11 @@ services:
     networks:
       - app-tier
     environment:
-      - SELECTED_TOPICS=["view", "click"]
+      - SELECTED_TOPICS=["view", "click", "purchase"]
       - EVENT_LISTENER_ADDRESS=kafka:9093
     depends_on:
       kafka_admin:
         condition: service_completed_successfully
-    develop:
-      watch:
-        - action: rebuild
-          path: ./analytics_service
-          target: /app
-
   client-1:
     build:
       context: ./client
@@ -89,11 +66,6 @@ services:
     depends_on:
       kafka_admin:
         condition: service_completed_successfully
-    develop:
-      watch:
-        - action: rebuild
-          path: ./client
-          target: /app
   client-2:
     build:
       context: ./client
@@ -108,8 +80,14 @@ services:
     depends_on:
       kafka_admin:
         condition: service_completed_successfully
-    develop:
-      watch:
-        - action: rebuild
-          path: ./client
-          target: /app
+  update_server:
+    build:
+      context: ./update_server
+      dockerfile: Dockerfile
+    networks:
+      - app-tier
+    ports:
+      - "5000:5000"
+networks:
+  app-tier:
+    driver: bridge

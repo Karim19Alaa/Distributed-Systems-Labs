@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client Activity Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static',filename='styles/style.css') }}">
+    <!-- Include Chart.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
+    <!-- Include Socket.IO client library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Client Activity Dashboard</h1>
+            <nav>
+                <ul>
+                    <li><a href="/">Home</a></li>
+                    <li><a href="/business">Business</a></li>
+                    <li><a href="/ads">Ads</a></li>
+                    <li><a href="/client" class="active">Client</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <main>
+            <div class="dashboard-card">
+                <h2>Client Activity</h2>
+                <div class="client-controls">
+                    <select id="clientSelector">
+                        <option value="all">All Clients</option>
+                    </select>
+                </div>
+                <div class="chart-container">
+                    <canvas id="clientChart"></canvas>
+                </div>
+            </div>
+
+            <div class="dashboard-card">
+                <h2>Client Activity Log</h2>
+                <div class="log-container">
+                    <ul id="clientLog"></ul>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Real-time Analytics Dashboard</p>
+        </footer>
+    </div>
+
+    <script>
+        // Initialize Socket.IO connection
+        const socket = io();
+        
+        // Join the client room
+        socket.emit('join', { service: 'client' });
+        
+        // Initialize client activity data
+        let clientActivity = {};
+        let selectedClient = 'all';
+        
+        // Initialize chart
+        let clientChart;
+        
+        // Function to update client selector dropdown
+        function updateClientSelector() {
+            const selector = document.getElementById('clientSelector');
+            const currentClients = Object.keys(clientActivity);
+            const existingOptions = Array.from(selector.options).map(option => option.value);
+            
+            // Add new clients to selector
+            currentClients.forEach(clientId => {
+                if (!existingOptions.includes(clientId) && clientId !== 'all') {
+                    const option = document.createElement('option');
+                    option.value = clientId;
+                    option.textContent = `Client ${clientId}`;
+                    selector.appendChild(option);
+                }
+            });
+        }
+        
+        // Function to get data for the selected client
+        function getSelectedClientData() {
+            if (selectedClient === 'all') {
+                // Aggregate all actions across clients
+                const aggregatedActions = {};
+                
+                Object.values(clientActivity).forEach(actions => {
+                    Object.entries(actions).forEach(([action, count]) => {
+                        aggregatedActions[action] = (aggregatedActions[action] || 0) + count;
+                    });
+                });
+                
+                return aggregatedActions;
+            } else {
+                // Return data for specific client
+                return clientActivity[selectedClient] || {};
+            }
+        }
+        
+        // Function to update or initialize the chart
+        function updateClientChart() {
+            const ctx = document.getElementById('clientChart').getContext('2d');
+            
+            // Get data for selected client
+            const clientData = getSelectedClientData();
+            
+            // Extract labels and data
+            const labels = Object.keys(clientData);
+            const data = labels.map(label => clientData[label]);
+            
+            // Generate background colors (a different shade of purple for each action)
+            const backgroundColors = labels.map((_, index) => {
+                const hue = 270; // Purple
+                const lightness = 40 + (index * 5) % 30; // Vary lightness
+                return `hsl(${hue}, 70%, ${lightness}%)`;
+            });
+            
+            const chartTitle = selectedClient === 'all' 
+                ? 'Activity Across All Clients' 
+                : `Client ${selectedClient} Activity`;
+            
+            // If chart already exists, update it
+            if (clientChart) {
+                clientChart.data.labels = labels;
+                clientChart.data.datasets[0].data = data;
+                clientChart.data.datasets[0].backgroundColor = backgroundColors;
+                clientChart.options.plugins.title.text = chartTitle;
+                clientChart.update();
+            } else {
+                // Otherwise create a new chart
+                clientChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Activity Count',
+                            data: data,
+                            backgroundColor: backgroundColors,
+                            borderColor: 'rgba(153, 102, 255, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Count'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Action'
+                                }
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: chartTitle
+                            },
+                            legend: {
+                                display: false
+                            }
+                        }
+                    }
+                });
+            }
+        }
+        
+        // Function to add message to client log
+        function addClientLog(message) {
+            const log = document.getElementById('clientLog');
+            const item = document.createElement('li');
+            
+            // Format timestamp
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString();
+            
+            item.textContent = `[${timestamp}] ${message}`;
+            log.prepend(item);
+            
+            // Limit log to 20 entries
+            if (log.children.length > 20) {
+                log.removeChild(log.lastChild);
+            }
+        }
+        
+        // Handle client selector changes
+        document.getElementById('clientSelector').addEventListener('change', function(e) {
+            selectedClient = e.target.value;
+            updateClientChart();
+        });
+        
+        // Handle updates from server
+        socket.on('update', function(data) {
+            console.log('Received client update:', data);
+            
+            // Update entire client activity if available
+            if (data.client_activity) {
+                Object.assign(clientActivity, data.client_activity);
+                updateClientSelector();
+                updateClientChart();
+            }
+            
+            // Update all client activity if available
+            if (data.all_client_activity) {
+                clientActivity = data.all_client_activity;
+                updateClientSelector();
+                updateClientChart();
+            }
+            
+            // Handle individual client update
+            if (data.user_id && data.action) {
+                if (!clientActivity[data.user_id]) {
+                    clientActivity[data.user_id] = {};
+                }
+                
+                clientActivity[data.user_id][data.action] = 
+                    (clientActivity[data.user_id][data.action] || 0) + 1;
+                
+                updateClientSelector();
+                updateClientChart();
+            }
+            
+            // Log message if available
+            if (data.message) {
+                addClientLog(data.message);
+            }
+        });
+        
+        // When DOM is loaded, fetch initial data and set up chart
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('/api/data/client')
+                .then(response => response.json())
+                .then(data => {
+                    clientActivity = data.client_activity || {};
+                    updateClientSelector();
+                    updateClientChart();
+                })
+                .catch(error => {
+                    console.error('Error fetching client data:', error);
+                    addClientLog('Error loading initial data. Please refresh.');
+                });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Analytics Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static',filename='styles/style.css') }}">
+    <!-- Include Chart.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
+    <!-- Include Socket.IO client library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Business Analytics Dashboard</h1>
+            <nav>
+                <ul>
+                    <li><a href="/" class="active">Home</a></li>
+                    <li><a href="/business" class="active">Business</a></li>
+                    <li><a href="/ads">Ads</a></li>
+                    <li><a href="/client">Client</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <main>
+            <div class="dashboard-card">
+                <h2>Action Frequency</h2>
+                <div class="chart-container">
+                    <canvas id="actionChart"></canvas>
+                </div>
+            </div>
+
+            <div class="dashboard-card">
+                <h2>Activity Log</h2>
+                <div class="log-container">
+                    <ul id="activityLog"></ul>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Real-time Analytics Dashboard</p>
+        </footer>
+    </div>
+
+    <script>
+        // Initialize Socket.IO connection
+        const socket = io();
+        
+        // Join the business room
+        socket.emit('join', { service: 'business' });
+        
+        // Initialize action counts from server data
+        let actionCounts = {};
+        
+        // Initialize chart
+        let actionChart;
+        
+        // Function to update or initialize the chart
+        function updateActionChart() {
+            const ctx = document.getElementById('actionChart').getContext('2d');
+            
+            // Extract labels and data from actionCounts
+            const labels = Object.keys(actionCounts);
+            const data = labels.map(label => actionCounts[label]);
+            
+            // Generate background colors (a different shade of blue for each action)
+            const backgroundColors = labels.map((_, index) => {
+                const hue = 210; // Blue
+                const lightness = 40 + (index * 5) % 30; // Vary lightness
+                return `hsl(${hue}, 70%, ${lightness}%)`;
+            });
+            
+            // If chart already exists, update it
+            if (actionChart) {
+                actionChart.data.labels = labels;
+                actionChart.data.datasets[0].data = data;
+                actionChart.data.datasets[0].backgroundColor = backgroundColors;
+                actionChart.update();
+            } else {
+                // Otherwise create a new chart
+                actionChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Action Count',
+                            data: data,
+                            backgroundColor: backgroundColors,
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Count'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Action'
+                                }
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Action Frequency Histogram'
+                            },
+                            legend: {
+                                display: false
+                            }
+                        }
+                    }
+                });
+            }
+        }
+        
+        // Function to add message to activity log
+        function addActivityLog(message) {
+            const log = document.getElementById('activityLog');
+            const item = document.createElement('li');
+            
+            // Format timestamp
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString();
+            
+            item.textContent = `[${timestamp}] ${message}`;
+            log.prepend(item);
+            
+            // Limit log to 20 entries
+            if (log.children.length > 20) {
+                log.removeChild(log.lastChild);
+            }
+        }
+        
+        // Handle updates from server
+        socket.on('update', function(data) {
+            console.log('Received update:', data);
+            
+            // Update action counts if available
+            if (data.action_counts) {
+                actionCounts = data.action_counts;
+                updateActionChart();
+            }
+            
+            // Log message if available
+            if (data.message) {
+                addActivityLog(data.message);
+            }
+            
+            // If individual action update
+            if (data.action) {
+                actionCounts[data.action] = actionCounts[data.action] || 0;
+                actionCounts[data.action]++;
+                updateActionChart();
+            }
+        });
+        
+        // When DOM is loaded, fetch initial data and set up chart
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('/api/data/business')
+                .then(response => response.json())
+                .then(data => {
+                    actionCounts = data.action_counts || {};
+                    updateActionChart();
+                })
+                .catch(error => {
+                    console.error('Error fetching business data:', error);
+                    addActivityLog('Error loading initial data. Please refresh.');
+                });
+        });
+    </script>
+</body>
+</html>
