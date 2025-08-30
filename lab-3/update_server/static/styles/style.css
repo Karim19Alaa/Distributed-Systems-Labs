@@ -1,0 +1,126 @@
+/* General Styles */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    width: 90%;
+    max-width: 1200px;
+    margin: auto;
+    background: #fff;
+    padding: 20px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Header */
+header {
+    background: #004466;
+    color: white;
+    padding: 20px;
+    text-align: center;
+}
+
+header h1 {
+    margin: 0;
+}
+
+nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+
+nav ul li {
+    display: inline;
+}
+
+nav ul li a {
+    color: white;
+    text-decoration: none;
+    padding: 10px 15px;
+    background: #006699;
+    border-radius: 5px;
+}
+
+nav ul li a:hover {
+    background: #0088cc;
+}
+
+/* Dashboard */
+.dashboard-overview, .dashboard-card {
+    background: #fff;
+    padding: 20px;
+    margin: 20px 0;
+    border-radius: 10px;
+    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* Dashboard Cards */
+.dashboard-cards {
+    display: flex;
+    gap: 20px;
+    justify-content: space-around;
+}
+
+.card {
+    background: #e3f2fd;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    flex: 1;
+}
+
+.card-button {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 10px 15px;
+    background: #006699;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+}
+
+.card-button:hover {
+    background: #0088cc;
+}
+
+/* Footer */
+footer {
+    text-align: center;
+    padding: 10px;
+    background: #004466;
+    color: white;
+    margin-top: 20px;
+}
+
+/* Charts */
+.chart-container {
+    width: 100%;
+    height: 300px;
+    position: relative;
+}
+
+/* Activity Log */
+.log-container {
+    background: #f9f9f9;
+    padding: 10px;
+    max-height: 250px;
+    overflow-y: auto;
+    border-radius: 5px;
+}
+
+.log-container ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+.log-container ul li {
+    padding: 5px;
+    border-bottom: 1px solid #ddd;
+}

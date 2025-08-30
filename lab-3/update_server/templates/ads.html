@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ads Analytics Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static',filename='styles/style.css') }}">
+    <!-- Include Chart.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
+    <!-- Include Socket.IO client library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Ads Analytics Dashboard</h1>
+            <nav>
+                <ul>
+                    <li><a href="/">Home</a></li>
+                    <li><a href="/business">Business</a></li>
+                    <li><a href="/ads" class="active">Ads</a></li>
+                    <li><a href="/client">Client</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <main>
+            <div class="dashboard-card">
+                <h2>Ad Type Distribution</h2>
+                <div class="chart-container">
+                    <canvas id="adTypeChart"></canvas>
+                </div>
+            </div>
+
+            <div class="dashboard-card">
+                <h2>Ad Delivery Log</h2>
+                <div class="log-container">
+                    <ul id="adLog"></ul>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Real-time Analytics Dashboard</p>
+        </footer>
+    </div>
+
+    <script>
+        // Initialize Socket.IO connection
+        const socket = io();
+        
+        // Join the ads room
+        socket.emit('join', { service: 'ads' });
+        
+        // Initialize ad type counts from server data
+        let adTypeCounts = {};
+        
+        // Initialize chart
+        let adTypeChart;
+        
+        // Function to update or initialize the chart
+        function updateAdTypeChart() {
+            const ctx = document.getElementById('adTypeChart').getContext('2d');
+            
+            // Extract labels and data from adTypeCounts
+            const labels = Object.keys(adTypeCounts);
+            const data = labels.map(label => adTypeCounts[label]);
+            
+            // Generate background colors (a different shade of green for each ad type)
+            const backgroundColors = labels.map((_, index) => {
+                const hue = 120; // Green
+                const lightness = 40 + (index * 5) % 30; // Vary lightness
+                return `hsl(${hue}, 70%, ${lightness}%)`;
+            });
+            
+            // If chart already exists, update it
+            if (adTypeChart) {
+                adTypeChart.data.labels = labels;
+                adTypeChart.data.datasets[0].data = data;
+                adTypeChart.data.datasets[0].backgroundColor = backgroundColors;
+                adTypeChart.update();
+            } else {
+                // Otherwise create a new chart
+                adTypeChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Ad Type Count',
+                            data: data,
+                            backgroundColor: backgroundColors,
+                            borderColor: 'rgba(75, 192, 92, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Count'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Ad Type'
+                                }
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Ad Types Histogram'
+                            },
+                            legend: {
+                                display: false
+                            }
+                        }
+                    }
+                });
+            }
+        }
+        
+        // Function to add message to ad log
+        function addAdLog(message) {
+            const log = document.getElementById('adLog');
+            const item = document.createElement('li');
+            
+            // Format timestamp
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString();
+            
+            item.textContent = `[${timestamp}] ${message}`;
+            log.prepend(item);
+            
+            // Limit log to 20 entries
+            if (log.children.length > 20) {
+                log.removeChild(log.lastChild);
+            }
+        }
+        
+        // Handle updates from server
+        socket.on('update', function(data) {
+            console.log('Received update:', data);
+            
+            // Update ad type counts if available
+            if (data.ad_type_counts) {
+                adTypeCounts = data.ad_type_counts;
+                updateAdTypeChart();
+            }
+            
+            // Log message if available
+            if (data.message) {
+                addAdLog(data.message);
+            }
+            
+            // If individual ad type update
+            if (data.ad_type) {
+                adTypeCounts[data.ad_type] = adTypeCounts[data.ad_type] || 0;
+                adTypeCounts[data.ad_type]++;
+                updateAdTypeChart();
+            }
+        });
+        
+        // When DOM is loaded, fetch initial data and set up chart
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('/api/data/ads')
+                .then(response => response.json())
+                .then(data => {
+                    adTypeCounts = data.ad_type_counts || {};
+                    updateAdTypeChart();
+                })
+                .catch(error => {
+                    console.error('Error fetching ads data:', error);
+                    addAdLog('Error loading initial data. Please refresh.');
+                });
+        });
+    </script>
+</body>
+</html>

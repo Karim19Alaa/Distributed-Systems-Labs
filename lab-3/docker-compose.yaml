@@ -1,0 +1,93 @@
+version: '3.8'
+services:
+  kafka:
+    image: apache/kafka-native
+    networks:
+      - app-tier
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_LISTENERS: CONTROLLER://localhost:9091,HOST://0.0.0.0:9092,DOCKER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: HOST://localhost:9092,DOCKER://kafka:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,DOCKER:PLAINTEXT,HOST:PLAINTEXT
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9091
+      KAFKA_INTER_BROKER_LISTENER_NAME: DOCKER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+  kafka_admin:
+    build:
+      context: ./kafka_admin
+      dockerfile: ./Dockerfile
+    networks:
+      - app-tier
+    depends_on:
+      - kafka
+    environment:
+      - KAFKA_HOST=kafka:9093
+      - TOPICS=["view", "click", "purchase"]
+  ml:
+    build:
+      context: ./ml_service
+      dockerfile: ./Dockerfile
+    networks:
+      - app-tier
+    environment:
+      - SELECTED_TOPICS=["view", "purchase"]
+      - EVENT_LISTENER_ADDRESS=kafka:9093
+      - ADS_EMITTER_ADDRESS=kafka:9093
+    depends_on:
+      kafka_admin:
+        condition: service_completed_successfully
+  analytics:
+    build:
+      context: ./analytics_service
+      dockerfile: ./Dockerfile
+    networks:
+      - app-tier
+    environment:
+      - SELECTED_TOPICS=["view", "click", "purchase"]
+      - EVENT_LISTENER_ADDRESS=kafka:9093
+    depends_on:
+      kafka_admin:
+        condition: service_completed_successfully
+  client-1:
+    build:
+      context: ./client
+      dockerfile: ./Dockerfile
+    networks:
+      - app-tier
+    environment:
+      - CLIENT_ID=1
+      - ADS_LISTENER_ADDRESS=kafka:9093
+      - EVENT_EMITTER_ADDRESS=kafka:9093
+      - ACTIONS=["view", "click", "purchase"]
+    depends_on:
+      kafka_admin:
+        condition: service_completed_successfully
+  client-2:
+    build:
+      context: ./client
+      dockerfile: ./Dockerfile
+    networks:
+      - app-tier
+    environment:
+      - CLIENT_ID=2
+      - ADS_LISTENER_ADDRESS=kafka:9093
+      - EVENT_EMITTER_ADDRESS=kafka:9093
+      - ACTIONS=["view", "click", "purchase"]
+    depends_on:
+      kafka_admin:
+        condition: service_completed_successfully
+  update_server:
+    build:
+      context: ./update_server
+      dockerfile: Dockerfile
+    networks:
+      - app-tier
+    ports:
+      - "5000:5000"
+networks:
+  app-tier:
+    driver: bridge

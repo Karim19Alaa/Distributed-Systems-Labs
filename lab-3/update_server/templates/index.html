@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Analytics Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static',filename='styles/style.css') }}">
+    <!-- Include Socket.IO client library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Real-time Analytics Dashboard</h1>
+            <nav>
+                <ul>
+                    <li><a href="/" class="active">Home</a></li>
+                    <li><a href="/business">Business</a></li>
+                    <li><a href="/ads">Ads</a></li>
+                    <li><a href="/client">Client</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <main>
+            <div class="dashboard-overview">
+                <h2>Analytics Overview</h2>
+                <p>Welcome to the Real-time Analytics Dashboard. Select one of the views to see detailed analytics:</p>
+                
+                <div class="dashboard-cards">
+                    <div class="card">
+                        <h3>Business Analytics</h3>
+                        <p>View action frequency across your platform. Track which actions are most common.</p>
+                        <a href="/business" class="card-button">View Business</a>
+                    </div>
+                    
+                    <div class="card">
+                        <h3>Ad Performance</h3>
+                        <p>Monitor ad delivery by type. See which ad types are being served most frequently.</p>
+                        <a href="/ads" class="card-button">View Ads</a>
+                    </div>
+                    
+                    <div class="card">
+                        <h3>Client Activity</h3>
+                        <p>Analyze client behavior. Track individual client actions or view aggregated data.</p>
+                        <a href="/client" class="card-button">View Clients</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="dashboard-card">
+                <h2>Server Status</h2>
+                <div id="serverStats">
+                    <p>Loading server statistics...</p>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Real-time Analytics Dashboard</p>
+        </footer>
+    </div>
+
+    <script>
+        // Function to update server stats
+        function updateServerStats() {
+            fetch('/stats')
+                .then(response => response.json())
+                .then(data => {
+                    const statsContainer = document.getElementById('serverStats');
+                    
+                    // Create HTML for stats
+                    let statsHtml = `
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div class="stat-label">Uptime</div>
+                                <div class="stat-value">${data.uptime_formatted}</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">Total Updates</div>
+                                <div class="stat-value">${data.total_updates}</div>
+                            </div>
+                    `;
+                    
+                    // Add service-specific stats
+                    for (const [service, count] of Object.entries(data.updates_by_service)) {
+                        statsHtml += `
+                            <div class="stat-item">
+                                <div class="stat-label">${service.charAt(0).toUpperCase() + service.slice(1)} Updates</div>
+                                <div class="stat-value">${count}</div>
+                            </div>
+                        `;
+                    }
+                    
+                    statsHtml += `</div>`;
+                    statsContainer.innerHTML = statsHtml;
+                })
+                .catch(error => {
+                    console.error('Error fetching server stats:', error);
+                    document.getElementById('serverStats').innerHTML = 
+                        '<p>Error loading server statistics. Please refresh.</p>';
+                });
+        }
+        
+        // Update stats when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            updateServerStats();
+            
+            // Update stats every 5 seconds
+            setInterval(updateServerStats, 5000);
+        });
+    </script>
+</body>
+</html>
